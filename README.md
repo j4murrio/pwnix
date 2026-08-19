@@ -6,6 +6,10 @@ The same repository installs on either one: it detects the distribution and adap
 names, the security tooling, the desktop session it registers, and the logo and wallpaper it
 dresses the desktop in.
 
+> **Every command that depends on your distribution is inside an  Arch Linux or  Kali Linux
+> drop-down.** Open yours and ignore the other — you will never need to translate a command by
+> hand. Anything not inside one works the same on both.
+
 ## Important Notes
 
 ISO downloads: [Arch Linux](https://archlinux.org/download/) · [Kali Linux](https://www.kali.org/get-kali/)
@@ -235,9 +239,23 @@ If you are running this environment inside a virtual machine, install the approp
 
 #### Install
 
+<details>
+<summary><b>&nbsp;Arch Linux</b></summary>
+
 ```bash
 sudo pacman -S --noconfirm open-vm-tools gtkmm3
 ```
+
+</details>
+
+<details>
+<summary><b>&nbsp;Kali Linux</b></summary>
+
+```bash
+sudo apt install -y open-vm-tools open-vm-tools-desktop
+```
+
+</details>
 
 #### Enable on boot and start
 
@@ -265,8 +283,27 @@ pgrep -x vmware-user-suid-wrapper > /dev/null || vmware-user-suid-wrapper &
 
 ```bash
 systemctl status vmtoolsd.service
+```
+
+And that the package is actually installed:
+
+<details>
+<summary><b>&nbsp;Arch Linux</b></summary>
+
+```bash
 pacman -Q open-vm-tools
 ```
+
+</details>
+
+<details>
+<summary><b>&nbsp;Kali Linux</b></summary>
+
+```bash
+dpkg -l open-vm-tools
+```
+
+</details>
 
 ---
 
@@ -274,9 +311,23 @@ pacman -Q open-vm-tools
 
 #### Install
 
+<details>
+<summary><b>&nbsp;Arch Linux</b></summary>
+
 ```bash
 sudo pacman -S --noconfirm spice-vdagent qemu-guest-agent xorg-xev
 ```
+
+</details>
+
+<details>
+<summary><b>&nbsp;Kali Linux</b></summary>
+
+```bash
+sudo apt install -y spice-vdagent qemu-guest-agent x11-utils
+```
+
+</details>
 
 #### Enable on boot and start
 
@@ -1182,17 +1233,35 @@ venvr                    # removes ./venv when done
 | **Serialization**     |                                                                                                         |
 | `pyyaml`              | YAML parsing and deserialization attack testing                                                         |
 | **System**            |                                                                                                         |
-| `impacket`            | Windows/AD network protocols (already in system via pacman)                                             |
+| `impacket`            | Windows/AD network protocols (installed as a system package, not via pip)                               |
 
 ```bash
 # Install all pip libraries (inside an active venv)
 pip install pwntools scapy requests beautifulsoup4 lxml paramiko pycryptodome python-nmap \
     capstone keystone-engine unicorn \
     sympy pillow oletools selenium pyyaml
+```
 
-# System packages (BlackArch) — incompatible with pip on Python 3.12+
+`ropper` and `impacket` do not build with pip on Python 3.12+, so they come from the system:
+
+<details>
+<summary><b>&nbsp;Arch Linux</b></summary>
+
+```bash
 sudo pacman -S --noconfirm ropper impacket
 ```
+
+</details>
+
+<details>
+<summary><b>&nbsp;Kali Linux</b></summary>
+
+```bash
+# Both normally ship with Kali already. Only if they are missing:
+sudo apt install -y ropper python3-impacket
+```
+
+</details>
 
 ---
 
@@ -1206,26 +1275,64 @@ sudo pacman -S --noconfirm ropper impacket
 
 #### Install
 
+<details>
+<summary><b>&nbsp;Arch Linux</b></summary>
+
 ```bash
-# Install from official Arch repos (stable)
+# From the official repos (stable)
 sudo pacman -S --noconfirm opencode
 
-# Or install latest version from AUR (requires yay, already included in this setup)
+# Or the latest from the AUR (yay is already part of this setup)
 yay -S opencode-bin
 
-# Verify
 opencode --version
 ```
 
-#### Update
+</details>
+
+<details>
+<summary><b>&nbsp;Kali Linux</b></summary>
+
+OpenCode has **no apt package**. Its official installer is the one below.
 
 ```bash
-# If installed from official repos
+curl -fsSL https://opencode.ai/install | bash
+
+# Or, if you would rather use node
+npm install -g opencode-ai
+
+opencode --version
+```
+
+</details>
+
+#### Update
+
+<details>
+<summary><b>&nbsp;Arch Linux</b></summary>
+
+```bash
+# If it came from the official repos
 sudo pacman -Syu opencode
 
-# If installed from AUR
+# If it came from the AUR
 yay -Syu opencode-bin
 ```
+
+</details>
+
+<details>
+<summary><b>&nbsp;Kali Linux</b></summary>
+
+```bash
+# Re-run the installer; it upgrades in place
+curl -fsSL https://opencode.ai/install | bash
+
+# Or, if you installed it with node
+npm update -g opencode-ai
+```
+
+</details>
 
 #### Connect a provider
 
@@ -1306,9 +1413,23 @@ curl --version
 
 If any are missing:
 
+<details>
+<summary><b>&nbsp;Arch Linux</b></summary>
+
 ```bash
 sudo pacman -S --noconfirm python python-pip git curl
 ```
+
+</details>
+
+<details>
+<summary><b>&nbsp;Kali Linux</b></summary>
+
+```bash
+sudo apt install -y python3 python3-pip git curl
+```
+
+</details>
 
 > Security tools (nmap, sqlmap, nuclei...) must be installed separately — see [Recommended Security Tools](#recommended-security-tools).
 
@@ -1457,16 +1578,31 @@ OpenCode understands any language — write your prompts however you prefer.
 
 If `wordlists` or `seclists` packages are not found:
 
+<details>
+<summary><b>&nbsp;Arch Linux</b></summary>
+
 ```bash
-# Verify BlackArch repository
+# Is the BlackArch repository actually configured?
 grep blackarch /etc/pacman.conf
 
-# Update system and keyring
+# Refresh the keyring, then try again
 sudo pacman -Syu blackarch-keyring
-
-# Try installing again
 sudo pacman -S wordlists seclists
 ```
+
+</details>
+
+<details>
+<summary><b>&nbsp;Kali Linux</b></summary>
+
+```bash
+sudo apt install -y wordlists seclists
+
+# Kali ships rockyou compressed; unpack it once
+sudo gunzip /usr/share/wordlists/rockyou.txt.gz
+```
+
+</details>
 
 **Manual installation (alternative):**
 
@@ -1512,20 +1648,31 @@ Ensure NetworkManager is running:
 sudo systemctl status NetworkManager
 ```
 
-### AUR Package Issues (Arch only)
+### AUR Package Issues
 
-If you need to install or update AUR packages:
+<details>
+<summary><b>&nbsp;Arch Linux</b></summary>
 
 ```bash
-# Update all AUR packages
+# Update every AUR package
 yay -Sua
 
-# Search for AUR packages
+# Search the AUR
 yay -Ss <package-name>
 
-# Install AUR package
+# Install from the AUR
 yay -S <package-name>
 ```
+
+</details>
+
+<details>
+<summary><b>&nbsp;Kali Linux</b></summary>
+
+There is no AUR on Kali. Everything comes from the Debian and Kali repositories with `apt`,
+and the `kali-tools-*` metapackages cover the tooling.
+
+</details>
 
 ---
 
