@@ -207,6 +207,7 @@ pkg_install() {
     local logical concrete part
     local -a to_install=()
     PKG_UNAVAILABLE=()
+    PKG_FAILED_LAST=()
 
     for logical in "$@"; do
         concrete=$(pkg_name "$logical")
@@ -225,16 +226,25 @@ pkg_install() {
 
     (( ${#to_install[@]} )) || return 0
 
+    # Both managers are transactional: one package they refuse takes the entire batch
+    # down with it, and a batch here is twenty-odd packages. When that happens, go back
+    # over them one at a time so the rest still land and the culprit is named.
+    if _pkg_install_batch "${to_install[@]}"; then
+        return 0
+    fi
+
+    echo "[!] The batch failed. Retrying one package at a time..."
+    for part in "${to_install[@]}"; do
+        _pkg_install_batch "$part" || PKG_FAILED_LAST+=("$part")
+    done
+    (( ${#PKG_FAILED_LAST[@]} == 0 ))
+}
+
+_pkg_install_batch() {
     case "$(distro_id)" in
-        arch)
-            sudo pacman -S --noconfirm --needed "${to_install[@]}"
-            ;;
-        debian)
-            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "${to_install[@]}"
-            ;;
-        *)
-            return 1
-            ;;
+        arch)   sudo pacman -S --noconfirm --needed "$@" ;;
+        debian) sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "$@" ;;
+        *)      return 1 ;;
     esac
 }
 

@@ -1,0 +1,7 @@
+# Keeps this stow package present in a fresh clone.
+#
+# The only other file here is `target`, runtime state written by the target-set and
+# target-reset shell functions, and it is gitignored on purpose. Without this file the
+# package arrives empty, and stow is all-or-nothing: one package with no files aborts the
+# whole deployment, so none of the other seven get linked either. That is what left a
+# freshly installed machine with an empty desktop.

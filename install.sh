@@ -74,11 +74,13 @@ PKG_GROUPS=(
 )
 
 UNAVAILABLE=()
+PKG_FAILED=()
 for group in "${PKG_GROUPS[@]}"; do
     echo -ne "\n[+] Installing ${group%%:*}...\n"
     # shellcheck disable=SC2086 - the list is ours and deliberately word-split
     pkg_install ${group#*:}
     (( ${#PKG_UNAVAILABLE[@]} )) && UNAVAILABLE+=("${PKG_UNAVAILABLE[@]}")
+    (( ${#PKG_FAILED_LAST[@]} )) && PKG_FAILED+=("${PKG_FAILED_LAST[@]}")
 done
 
 # Install neovim (skip if already installed — never touch an existing install)
@@ -273,8 +275,44 @@ for pkg in "${STOW_PACKAGES[@]}"; do
 done
 
 # Stow all packages (target: $HOME, stow dir: dotfiles/)
-stow -v -t "$HOME" -d "$dir/dotfiles" "${STOW_PACKAGES[@]}"
-echo -e "${greenColour}[+] Done.${endColour}\n"
+# stow is what puts every config in place. Carrying on without it produces a machine
+# that installs cleanly and then logs into an empty desktop, so it stops here instead.
+if ! command -v stow &>/dev/null; then
+    echo -e "${redColour}[!] GNU Stow is not installed and the dotfiles cannot be deployed.${endColour}"
+    if is_debian; then
+        echo -e "${redColour}    Install it and re-run: sudo apt install stow${endColour}"
+    else
+        echo -e "${redColour}    Install it and re-run: sudo pacman -S stow${endColour}"
+    fi
+    exit 1
+fi
+
+# One at a time, not all eight at once: stow is all-or-nothing, so a single package it
+# dislikes used to abort the lot and leave nothing linked at all.
+STOW_FAILED=()
+for pkg in "${STOW_PACKAGES[@]}"; do
+    stow -v -t "$HOME" -d "$dir/dotfiles" "$pkg" || STOW_FAILED+=("$pkg")
+done
+
+if (( ${#STOW_FAILED[@]} )); then
+    echo -e "${redColour}[!] These packages could not be deployed: ${STOW_FAILED[*]}${endColour}"
+else
+    echo -e "${greenColour}[+] Done.${endColour}\n"
+fi
+
+# --- 3a. Verify the deployment ---
+# Running stow and having the dotfiles in place are different claims. These four are
+# what a working session needs: without bspwmrc there is no desktop at all.
+MISSING_LINKS=()
+for link in "$HOME/.config/bspwm/bspwmrc" "$HOME/.config/polybar/launch.sh" \
+            "$HOME/.config/sxhkd/sxhkdrc" "$HOME/.zshrc"; do
+    [[ -e "$link" ]] || MISSING_LINKS+=("$link")
+done
+
+if (( ${#MISSING_LINKS[@]} )); then
+    echo -e "${redColour}[!] The dotfiles were not deployed. Missing:${endColour}"
+    printf '      %s\n' "${MISSING_LINKS[@]}"
+fi
 
 # --- 3b. Install LazyVim (stock, no customization) — skip if already present ---
 if [[ -d "$HOME/.config/nvim" ]]; then
@@ -440,8 +478,21 @@ if (( ${#UNAVAILABLE[@]} )); then
     printf '      %s\n' "${UNAVAILABLE[@]}"
 fi
 
-echo -e "\n${greenColour}[+] DONE!${endColour}"
-echo -e "${greenColour}[✓] Installation complete!${endColour}\n"
+# Saying "complete" after failing to deploy anything is how a broken install reaches
+# the login screen unnoticed. The ending reports what happened.
+if (( ${#MISSING_LINKS[@]} || ${#STOW_FAILED[@]} || ${#PKG_FAILED[@]} )); then
+    echo -e "\n${redColour}[!] INSTALLATION INCOMPLETE${endColour}"
+    (( ${#PKG_FAILED[@]} )) &&
+        echo -e "${redColour}    Packages that failed to install: ${PKG_FAILED[*]}${endColour}"
+    (( ${#STOW_FAILED[@]} )) &&
+        echo -e "${redColour}    Packages that failed to deploy: ${STOW_FAILED[*]}${endColour}"
+    (( ${#MISSING_LINKS[@]} )) &&
+        echo -e "${redColour}    Configs missing from your home directory.${endColour}"
+    echo -e "${yellowColour}    Fix what is reported above, then re-run: bash $dir/sync.sh${endColour}\n"
+else
+    echo -e "\n${greenColour}[+] DONE!${endColour}"
+    echo -e "${greenColour}[✓] Installation complete!${endColour}\n"
+fi
 echo -e "${blueColour}[i] The full installation process has been logged to: $LOG_FILE${endColour}"
 echo -e "${blueColour}    You can review it anytime and delete it when no longer needed.${endColour}\n"
 
