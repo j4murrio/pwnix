@@ -6,7 +6,7 @@ The same repository installs on either one: it detects the distribution and adap
 names, the security tooling, the desktop session it registers, and the logo and wallpaper it
 dresses the desktop in.
 
-> **Every command that depends on your distribution is inside an  Arch Linux or  Kali Linux
+> **Every command that depends on your distribution is inside an Arch Linux or Kali Linux
 > drop-down.** Open yours and ignore the other — you will never need to translate a command by
 > hand. Anything not inside one works the same on both.
 
@@ -165,7 +165,7 @@ Two differences from the Arch path, both handled for you:
 
 - **Nothing already installed is touched.** Kali ships with a lot of this, and the installer
   checks each package first and skips what is present.
-- **No security tools are installed.** They *are* Kali. If you want more, the `kali-tools-*`
+- **No security tools are installed.** They _are_ Kali. If you want more, the `kali-tools-*`
   metapackages are the way — see [kali-meta](https://www.kali.org/tools/kali-meta/).
 
 #### 1. Update System and Install Git
@@ -204,7 +204,7 @@ chmod +x install.sh
 
 > **About prompts.** Ours are `[Y/n]` and Enter means yes, same as on Arch. Debian has one that
 > looks similar and is not ours: when a package ships a new version of a config file you have
-> edited, dpkg asks `(Y/I/N/O/D/Z) [default=N]` — and there Enter means *keep yours*. `sysup`
+> edited, dpkg asks `(Y/I/N/O/D/Z) [default=N]` — and there Enter means _keep yours_. `sysup`
 > passes `--force-confdef --force-confold` so that prompt never appears and your files are kept.
 
 #### 5. Log out and pick bspwm
@@ -355,7 +355,7 @@ spice-vdagent &
 
 X starts at QEMU's default mode (e.g. `1280x800`). A moment later `spice-vdagent`
 negotiates the SPICE client size and marks the larger mode (e.g. `1920x975`) as
-the output's *preferred* one, but nothing reapplies it — so X stays at
+the output's _preferred_ one, but nothing reapplies it — so X stays at
 `1280x800` and the autostarted wallpaper / polybar (drawn at that size) don't
 re-draw. The desktop is mis-sized until a manual
 <kbd>Super</kbd> + <kbd>Alt</kbd> + <kbd>R</kbd> restart re-runs `xrandr --auto`
@@ -364,7 +364,7 @@ re-draw. The desktop is mis-sized until a manual
 To fix this automatically, autostart the bundled helper. On every RandR change it
 reapplies `xrandr --output <out> --auto` (switching X to the host-negotiated
 mode) and then redraws wallpaper / polybar / picom — **no sleeps, no polling**.
-It listens on real X RandR events via `xev`, because a new *preferred* mode does
+It listens on real X RandR events via `xev`, because a new _preferred_ mode does
 not trigger bspwm's own monitor events:
 
 ```bash
@@ -397,14 +397,14 @@ sysup
 
 Or click the **Updates** module in the polybar, which opens a terminal and runs the same script. It is the `apt update && apt full-upgrade` of this setup: it asks for your password **once** and keeps the session alive for the whole run, and every confirmation follows the Arch convention — pressing Enter means yes.
 
-| Source | What happens |
-| --- | --- |
-| System packages | `pacman -Syu` on Arch (keyrings first, BlackArch included), `apt dist-upgrade` on Kali |
-| AUR | `yay -Sua` — Arch only |
-| PWNIX dotfiles | pulls the repo and re-runs `sync.sh`; asks before touching any local edit of yours |
-| Fonts, wallpapers, xsession entry | re-copied from the repo when they change |
-| Mirrorlist | `reflector`, Arch only, and only if the list is over a week old |
-| Cleanup | orphaned packages (it asks first) and the package cache |
+| Source                            | What happens                                                                           |
+| --------------------------------- | -------------------------------------------------------------------------------------- |
+| System packages                   | `pacman -Syu` on Arch (keyrings first, BlackArch included), `apt dist-upgrade` on Kali |
+| AUR                               | `yay -Sua` — Arch only                                                                 |
+| PWNIX dotfiles                    | pulls the repo and re-runs `sync.sh`; asks before touching any local edit of yours     |
+| Fonts, wallpapers, xsession entry | re-copied from the repo when they change                                               |
+| Mirrorlist                        | `reflector`, Arch only, and only if the list is over a week old                        |
+| Cleanup                           | orphaned packages (it asks first) and the package cache                                |
 
 **That is the whole list, on purpose.** The package manager owns what it installed, and this
 repository owns the dotfiles. Everything you installed by hand stays yours to update — an
@@ -460,11 +460,11 @@ Two things it shows that are not numbers:
 The desktop wears the badge of whatever it is running on, decided at install time and kept in
 step by updates:
 
-| | Arch | Kali |
-| --- | --- | --- |
-| Wallpaper | `assets/wallpapers/arch.png` | `assets/wallpapers/kali.png` |
-| Polybar launcher | Arch logo, `#0A9CF5` | Kali logo, `#367BF0` |
-| Shell prompt | Arch logo | Kali logo |
+|                  | Arch                         | Kali                         |
+| ---------------- | ---------------------------- | ---------------------------- |
+| Wallpaper        | `assets/wallpapers/arch.png` | `assets/wallpapers/kali.png` |
+| Polybar launcher | Arch logo, `#0A9CF5`         | Kali logo, `#367BF0`         |
+| Shell prompt     | Arch logo                    | Kali logo                    |
 
 Both wallpapers are copied to `~/Wallpapers/`, and the one for your distribution is installed
 as `~/Wallpapers/wallpaper.png`, which is the single name every config refers to. To use your
@@ -477,19 +477,19 @@ Stow deploys the dotfiles as symlinks **into the repo**, so editing `~/.zshrc` o
 
 So every package has a `.local` companion that lives **outside** the repo and is loaded **last**, which means it wins. Nothing that goes in these files is ever touched by an update:
 
-| Put this in…                  | To…                                              | Loaded by                            |
-| ----------------------------- | ------------------------------------------------ | ------------------------------------ |
-| `~/.zshrc.local`              | your aliases, functions, exports                 | `source` at the end of `.zshrc`      |
-| `~/.config/bspwm.local`       | autostart lines (VM guest additions live here)   | `bspwmrc`                            |
-| `~/.config/sxhkd.local`       | extra keybinds                                   | extra config file passed to `sxhkd`  |
-| `~/.config/polybar.local.ini` | bar colours, module tweaks                       | `include-file` in `config.ini`       |
-| `~/.config/kitty.local.conf`  | font size, colours, keymaps                      | `include` in `kitty.conf`            |
-| `~/.config/rofi.local.rasi`   | menu colours and fonts                           | `?import` in the three menu themes   |
-| `~/.config/picom.local.conf`  | compositor settings                              | **replaces** the shipped config      |
+| Put this in…                  | To…                                            | Loaded by                           |
+| ----------------------------- | ---------------------------------------------- | ----------------------------------- |
+| `~/.zshrc.local`              | your aliases, functions, exports               | `source` at the end of `.zshrc`     |
+| `~/.config/bspwm.local`       | autostart lines (VM guest additions live here) | `bspwmrc`                           |
+| `~/.config/sxhkd.local`       | extra keybinds                                 | extra config file passed to `sxhkd` |
+| `~/.config/polybar.local.ini` | bar colours, module tweaks                     | `include-file` in `config.ini`      |
+| `~/.config/kitty.local.conf`  | font size, colours, keymaps                    | `include` in `kitty.conf`           |
+| `~/.config/rofi.local.rasi`   | menu colours and fonts                         | `?import` in the three menu themes  |
+| `~/.config/picom.local.conf`  | compositor settings                            | **replaces** the shipped config     |
 
 `sync.sh` creates them empty on first run, so you only ever have to open one and type.
 
-> **picom works differently on purpose.** Its config format rejects duplicate settings, so a second `backend = "glx"` would be a parse error rather than an override — an include there could only ever *add* keys. Instead, if `~/.config/picom.local.conf` exists it is used **instead of** the repo's config. To customise it, copy `~/.config/picom/picom.conf` to that path and edit your copy. If you delete it, the shipped config takes over again.
+> **picom works differently on purpose.** Its config format rejects duplicate settings, so a second `backend = "glx"` would be a parse error rather than an override — an include there could only ever _add_ keys. Instead, if `~/.config/picom.local.conf` exists it is used **instead of** the repo's config. To customise it, copy `~/.config/picom/picom.conf` to that path and edit your copy. If you delete it, the shipped config takes over again.
 
 Example:
 
@@ -505,7 +505,7 @@ super + shift + b
 
 > **sxhkd adds, it does not override.** Its config files are read in order and sxhkd does not
 > document which definition wins for a chord defined twice, so treat `sxhkd.local` as a place for
-> *new* bindings. To change one the repo already ships, edit `sxhkdrc` — that is a repo edit, and
+> _new_ bindings. To change one the repo already ships, edit `sxhkdrc` — that is a repo edit, and
 > the update will ask whether to keep it.
 
 #### If you edited a repo file anyway
@@ -513,7 +513,7 @@ super + shift + b
 Perfectly fine — it is how you contribute a change back. When `sysup` finds new commits it checks the working tree first:
 
 - **Clean** — fast-forwards. No prompt, and no reset: nothing is at risk.
-- **You have local changes** — it lists them and asks *"Keep your local changes?"* (Enter = yes). Keeping them stashes your edits, pulls, and replays them on top. Answering no discards them and matches the remote exactly.
+- **You have local changes** — it lists them and asks _"Keep your local changes?"_ (Enter = yes). Keeping them stashes your edits, pulls, and replays them on top. Answering no discards them and matches the remote exactly.
 - **Your edit collides with an incoming one** — the update stops and says so, and your work stays safe in the stash. `git stash pop` in the repo after resolving.
 
 ---
@@ -742,17 +742,17 @@ After logging in, several helper functions are available to streamline common pe
 
 The status bar includes interactive modules for pentesting:
 
-| Module         | Display                                      | Click Action                                               |
-| -------------- | -------------------------------------------- | ---------------------------------------------------------- |
-| **Launcher**   | Arch logo                                    | Opens Rofi application launcher                            |
-| **Ethernet**   | Current ethernet IP                          | Copies IP to clipboard                                     |
-| **VPN**        | Current VPN IP                               | Copies IP to clipboard (auto-detects tun/tap/wg/ppp)       |
-| **Target**     | Active target IP/name                        | Copies target info to clipboard                            |
-| **CPU**        | CPU usage percentage                         | -                                                          |
-| **Filesystem** | Free disk space                              | -                                                          |
-| **PulseAudio** | Volume level / Muted                         | -                                                          |
+| Module         | Display                                                                                            | Click Action                                               |
+| -------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| **Launcher**   | Arch logo                                                                                          | Opens Rofi application launcher                            |
+| **Ethernet**   | Current ethernet IP                                                                                | Copies IP to clipboard                                     |
+| **VPN**        | Current VPN IP                                                                                     | Copies IP to clipboard (auto-detects tun/tap/wg/ppp)       |
+| **Target**     | Active target IP/name                                                                              | Copies target info to clipboard                            |
+| **CPU**        | CPU usage percentage                                                                               | -                                                          |
+| **Filesystem** | Free disk space                                                                                    | -                                                          |
+| **PulseAudio** | Volume level / Muted                                                                               | -                                                          |
 | **Updates**    | Everything pending, across every source `sysup` updates; a git glyph when the pwnix repo is behind | Opens a terminal and runs the full system update (`sysup`) |
-| **Sysmenu**    | Power icon                                   | Opens power menu (shutdown, reboot, lock, suspend, logout) |
+| **Sysmenu**    | Power icon                                                                                         | Opens power menu (shutdown, reboot, lock, suspend, logout) |
 
 ### Shell Aliases
 
@@ -792,13 +792,6 @@ The status bar includes interactive modules for pentesting:
 | `wsvenva` | `wsvenv-activate` | Activate workspace venv                               |
 | `wsvenvr` | `wsvenv-reset`    | Delete and recreate workspace venv with all libraries |
 | `sysup`   | `system-update`   | Full system update — everything install.sh put here   |
-
-#### Applications
-
-| Alias       | Description                                                     |
-| ----------- | --------------------------------------------------------------- |
-| `hexstrike` | Start HexStrike AI MCP server (see [MCP Servers](#mcp-servers)) |
-| `opencode`  | Launch OpenCode AI terminal agent (system binary via pacman)    |
 
 All aliases and helper function shortcuts are active by default after installation.
 
