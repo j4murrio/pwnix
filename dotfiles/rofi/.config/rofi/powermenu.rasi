@@ -1,0 +1,126 @@
+/*****----- Configuration -----*****/
+configuration {
+    show-icons:                 false;
+}
+
+/*****----- Global Properties -----*****/
+@import                          "colors.rasi"
+@import                          "fonts.rasi"
+
+/*****----- Main Window -----*****/
+window {
+    transparency:                "real";
+    location:                    center;
+    anchor:                      center;
+    fullscreen:                  false;
+    width:                       1000px;
+    border:                      2px solid;
+    border-radius:               30px;
+    border-color:                @background-alt;
+    cursor:                      "default";
+    background-color:            @background;
+}
+
+/*****----- Main Box -----*****/
+mainbox {
+    enabled:                     true;
+    spacing:                     20px;
+    margin:                      0px;
+    padding:                     30px;
+    border:                      0px;
+    background-color:            transparent;
+    children:                    [ "inputbar", "listview" ];
+}
+
+/*****----- Inputbar -----*****/
+inputbar {
+    enabled:                     true;
+    spacing:                     0px;
+    margin:                      0px;
+    padding:                     0px;
+    background-color:            transparent;
+    text-color:                  @foreground;
+    children:                    [ "textbox-prompt-colon", "dummy", "prompt" ];
+}
+
+dummy {
+    expand:                      true;
+    background-color:            transparent;
+}
+
+textbox-prompt-colon {
+    enabled:                     true;
+    expand:                      false;
+    str:                         "SYSTEM";
+    padding:                     12px 20px;
+    border-radius:               10px;
+    background-color:            @background-alt;
+    text-color:                  @urgent;
+}
+
+prompt {
+    enabled:                     true;
+    expand:                      false;
+    padding:                     12px 20px;
+    border-radius:               10px;
+    background-color:            @background-alt;
+    text-color:                  @active;
+}
+
+/*****----- Listview -----*****/
+listview {
+    enabled:                     true;
+    columns:                     5;
+    lines:                       1;
+    cycle:                       true;
+    dynamic:                     true;
+    scrollbar:                   false;
+    layout:                      vertical;
+    reverse:                     false;
+    fixed-height:                true;
+    fixed-columns:               true;
+    spacing:                     20px;
+    margin:                      0px;
+    padding:                     20px;
+    border:                      2px solid;
+    border-radius:               25px;
+    border-color:                @background-alt;
+    background-color:            transparent;
+    text-color:                  @foreground;
+    cursor:                      "default";
+}
+
+/*****----- Elements -----*****/
+element {
+    enabled:                     true;
+    spacing:                     0px;
+    margin:                      0px;
+    padding:                     40px 30px;
+    border:                      0px;
+    border-radius:               20px;
+    background-color:            @background-alt;
+    text-color:                  @foreground;
+    cursor:                      pointer;
+}
+
+element-text {
+    font:                        "JetBrainsMono Nerd Font 36";
+    background-color:            transparent;
+    text-color:                  inherit;
+    cursor:                      inherit;
+    vertical-align:              0.5;
+    horizontal-align:            0.5;
+}
+
+element selected.normal {
+    background-color:            @selected;
+    text-color:                  @background;
+}
+
+element-icon {
+    enabled:                     false;
+}
+
+/*****----- Machine-local overrides (last import wins, lives outside the repo) -----*****/
+/* ?import, not @import: a missing file must not abort parsing and leave you menuless. */
+?import                          "~/.config/rofi.local.rasi"

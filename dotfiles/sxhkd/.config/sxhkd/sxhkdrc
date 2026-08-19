@@ -1,0 +1,180 @@
+# ══════════════════════════════════════════════════════════════
+#                    APPLICATIONS
+# ══════════════════════════════════════════════════════════════
+
+# Terminal (t = terminal)
+super + t
+	kitty
+
+# Firefox (f = firefox)
+super + f
+	firefox-developer-edition
+
+# Rofi launcher (d = dmenu/launcher)
+super + d
+	~/.config/rofi/scripts/launcher.sh
+
+# File manager (e = explorer)
+super + e
+	thunar
+
+# ══════════════════════════════════════════════════════════════
+#                    BSPWM - CONTROL
+# ══════════════════════════════════════════════════════════════
+
+# Close window (c = close)
+super + c
+	bspc node -c
+
+# Kill window (k = kill)
+super + k
+	bspc node -k
+
+# Quit bspwm (q = quit)
+super + alt + q
+	bspc quit
+
+# Restart bspwm (r = restart)
+super + alt + r
+	bspc wm -r
+
+# Reload sxhkd
+super + Escape
+	pkill -USR1 -x sxhkd
+
+# ══════════════════════════════════════════════════════════════
+#                    WINDOW STATES
+# ══════════════════════════════════════════════════════════════
+
+# Tiled mode (alt + t)
+super + alt + t
+	bspc node -t tiled
+
+# Floating mode (alt + f)
+super + alt + f
+	bspc node -t floating
+
+# Fullscreen mode (alt + s = screen)
+super + alt + s
+	bspc node -t fullscreen
+
+# Monocle toggle (m = monocle/maximize)
+super + m
+	bspc desktop -l next
+
+# ══════════════════════════════════════════════════════════════
+#                    NAVIGATION
+# ══════════════════════════════════════════════════════════════
+
+# Navigate between windows (arrows)
+super + {Left,Down,Up,Right}
+	bspc node -f {west,south,north,east}
+
+# Cycle through windows (n = next, b = back)
+super + {n,b}
+	bspc node -f {next,prev}.local.!hidden.window
+
+# Switch to workspace (number)
+super + {1-9,0}
+	bspc desktop -f '^{1-9,10}'
+
+# Previous/next workspace (brackets)
+super + {bracketleft,bracketright}
+	bspc desktop -f {prev,next}.local
+
+# Last workspace (Tab)
+super + Tab
+	bspc desktop -f last
+
+# ══════════════════════════════════════════════════════════════
+#                    MOVEMENT
+# ══════════════════════════════════════════════════════════════
+
+# Swap window position (shift + arrows)
+super + shift + {Left,Down,Up,Right}
+	bspc node -s {west,south,north,east}
+
+# Move window to workspace (shift + number)
+super + shift + {1-9,0}
+	bspc node -d '^{1-9,10}'
+
+# Move window to workspace and follow (ctrl + shift + number)
+super + ctrl + shift + {1-9,0}
+	bspc node -d '^{1-9,10}' --follow
+
+# Rotate tree (r = rotate)
+super + r
+	bspc node @/ -R 90
+
+# Rotate tree counter-clockwise
+super + shift + r
+	bspc node @/ -R -90
+
+# Balance tree (equal splits)
+super + equal
+	bspc node @/ -B
+
+# ══════════════════════════════════════════════════════════════
+#                    RESIZE
+# ══════════════════════════════════════════════════════════════
+
+# Resize window (alt + arrows)
+super + alt + {Left,Down,Up,Right}
+	~/.config/bspwm/scripts/bspwm_resize {west,south,north,east}
+
+# Move floating window (shift + ctrl + arrows)
+super + shift + ctrl + {Left,Down,Up,Right}
+	bspc node -v {-20 0,0 20,0 -20,20 0}
+
+# ══════════════════════════════════════════════════════════════
+#                    PRESELECT
+# ══════════════════════════════════════════════════════════════
+
+# Preselect direction for next window (ctrl + arrows)
+super + ctrl + {Left,Down,Up,Right}
+	bspc node -p {west,south,north,east}
+
+# Preselect ratio (ctrl + number)
+super + ctrl + {1-9}
+	bspc node -o 0.{1-9}
+
+# Cancel preselection (ctrl + space)
+super + ctrl + space
+	bspc node -p cancel
+
+# Cancel all preselections on desktop
+super + ctrl + alt + space
+	bspc query -N -d | xargs -I id -n 1 bspc node id -p cancel
+
+# ══════════════════════════════════════════════════════════════
+#                    SYSTEM
+# ══════════════════════════════════════════════════════════════
+
+# Lock screen (l = lock)
+super + l
+	i3lock-fancy
+
+# Launch rofi power menu
+super + p
+    ~/.config/rofi/scripts/powermenu.sh
+
+# Increase volume
+ctrl + shift + Up
+	pamixer --increase 5
+
+# Decrease volume
+ctrl + shift + Down
+	pamixer --decrease 5
+
+# Mute/Unmute volume
+ctrl + shift + m
+	pamixer --toggle-mute
+
+# Full screenshot
+@Print
+	flameshot full
+
+# Screenshot with selection
+ctrl + @Print
+	flameshot gui
+
