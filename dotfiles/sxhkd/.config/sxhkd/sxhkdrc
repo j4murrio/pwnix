@@ -6,9 +6,9 @@
 super + t
 	kitty
 
-# Firefox (f = firefox)
+# Browser (f = firefox) — firefox on Arch, firefox-esr on Kali, or $BROWSER
 super + f
-	firefox-developer-edition
+	~/.config/bspwm/scripts/browser.sh
 
 # Rofi launcher (d = dmenu/launcher)
 super + d

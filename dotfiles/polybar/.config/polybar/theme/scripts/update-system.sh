@@ -55,6 +55,15 @@ confirm() {
     [[ "${reply:-y}" =~ ^([Yy]|[Yy][Ee][Ss])$ ]]
 }
 
+# The same question where Enter must mean no: only for the one step that destroys work
+# nobody can get back.
+confirm_no() {
+    local reply
+    printf ":: %s [y/N] " "$1"
+    read -r reply
+    [[ "$reply" =~ ^([Yy]|[Yy][Ee][Ss])$ ]]
+}
+
 record_ok() {
     UPDATED+=("$1")
     [[ -n "$2" ]] && UPDATED_DETAILS+=("      $2")
@@ -126,7 +135,7 @@ else
     if is_arch; then
         record_fail "system packages" "sudo pacman -Syu"
     else
-        record_fail "system packages" "sudo apt update \&\& sudo apt full-upgrade"
+        record_fail "system packages" "sudo apt update && sudo apt full-upgrade"
     fi
 fi
 rm -f "$PKG_LOG"
@@ -159,23 +168,35 @@ fi
 #  2. PWNIX dotfiles
 # ──────────────────────────────────────────────────────────
 
-# Bring the working tree to the remote state. Three paths, because "discard everything"
-# is only correct in one of them:
-#   clean          -> pull --ff-only, which refuses rather than dropping local commits
-#   dirty, keeping -> stash, pull, reapply; a conflict leaves the stash intact
-#   dirty, discard -> reset --hard, exact and unable to conflict
+# Move HEAD onto the upstream. Fast-forward normally, and only reset when the caller has
+# already asked about what that throws away. The remote was fetched a moment ago, so both
+# work offline from here.
+_pwnix_advance() {
+    local force="$1"
+    if $force; then
+        git -C "$PWNIX_DIR" reset --hard "$PWNIX_UPSTREAM" 2>&1
+    else
+        git -C "$PWNIX_DIR" merge --ff-only --quiet "$PWNIX_UPSTREAM"
+    fi
+}
+
+# Bring the working tree to the remote state. Two answers decide how:
+#   keep  -> stash, advance, reapply; a conflict leaves the stash intact
+#   force -> reset --hard, exact and unable to conflict, and the only path that destroys
+#            anything. Set when uncommitted edits are being discarded, or when local
+#            commits are (which the caller has confirmed on its own).
 # Sets PWNIX_APPLIED on success.
 pwnix_apply_update() {
-    local keep="$1"
+    local keep="$1" force="$2"
 
     if $keep; then
         if ! git -C "$PWNIX_DIR" stash push --quiet -m "pwnix update auto-stash"; then
             record_fail "pwnix dotfiles stash" "git -C $PWNIX_DIR stash push"
             return 1
         fi
-        if ! git -C "$PWNIX_DIR" pull --ff-only --quiet origin "$PWNIX_BRANCH"; then
+        if ! _pwnix_advance "$force"; then
             git -C "$PWNIX_DIR" stash pop --quiet
-            record_fail "pwnix dotfiles pull" "git -C $PWNIX_DIR pull --ff-only"
+            record_fail "pwnix dotfiles update" "git -C $PWNIX_DIR merge --ff-only $PWNIX_UPSTREAM"
             return 1
         fi
         if git -C "$PWNIX_DIR" stash pop --quiet; then
@@ -185,24 +206,16 @@ pwnix_apply_update() {
         # The stash is still on the stack, so nothing of yours is gone.
         echo "    [!] Your changes conflict with the update. They are safe in the stash:"
         git -C "$PWNIX_DIR" diff --name-only --diff-filter=U 2>/dev/null | sed 's/^/        /'
-        record_fail "pwnix dotfiles: local changes conflict with the update"             "cd $PWNIX_DIR && git status   # resolve, then: git stash drop"
+        record_fail "pwnix dotfiles: local changes conflict with the update" \
+            "cd $PWNIX_DIR && git status   # resolve, then: git stash drop"
         return 1
     fi
 
-    if (( ${#PWNIX_DIRTY[@]} )); then
-        if git -C "$PWNIX_DIR" reset --hard "origin/$PWNIX_BRANCH" 2>&1; then
-            PWNIX_APPLIED=true
-            return 0
-        fi
-        record_fail "pwnix dotfiles update" "git -C $PWNIX_DIR reset --hard origin/$PWNIX_BRANCH"
-        return 1
-    fi
-
-    if git -C "$PWNIX_DIR" pull --ff-only --quiet origin "$PWNIX_BRANCH"; then
+    if _pwnix_advance "$force"; then
         PWNIX_APPLIED=true
         return 0
     fi
-    record_fail "pwnix dotfiles pull (history has diverged)"         "git -C $PWNIX_DIR pull --ff-only origin $PWNIX_BRANCH"
+    record_fail "pwnix dotfiles update" "git -C $PWNIX_DIR merge --ff-only $PWNIX_UPSTREAM"
     return 1
 }
 
@@ -212,16 +225,26 @@ PWNIX_DIRTY=()
 if command -v git &>/dev/null && [[ -n "$PWNIX_DIR" && -d "$PWNIX_DIR/.git" ]]; then
     echo ""
     echo "[*] Checking PWNIX dotfiles..."
-    timeout 60 env GIT_TERMINAL_PROMPT=0 git -C "$PWNIX_DIR" fetch --quiet origin 2>&1
-    PWNIX_BRANCH=$(git -C "$PWNIX_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null)
-    LOCAL=$(git -C "$PWNIX_DIR" rev-parse HEAD 2>/dev/null)
-    REMOTE=$(git -C "$PWNIX_DIR" rev-parse "origin/$PWNIX_BRANCH" 2>/dev/null)
+    pwnix_fetch "$PWNIX_DIR" 60 ||
+        echo "    [!] Could not reach the remote. Reading what was already fetched."
 
-    if [[ -n "$REMOTE" && "$LOCAL" != "$REMOTE" ]]; then
-        BEHIND=$(git -C "$PWNIX_DIR" rev-list --count "$LOCAL".."$REMOTE" 2>/dev/null)
+    PWNIX_UPSTREAM=$(pwnix_upstream "$PWNIX_DIR" 2>/dev/null)
+    BEHIND=0
+    AHEAD=0
+    if [[ -n "$PWNIX_UPSTREAM" ]]; then
+        read -r BEHIND AHEAD <<< "$(pwnix_repo_counts "$PWNIX_DIR" 2>/dev/null)"
+        BEHIND=${BEHIND:-0}
+        AHEAD=${AHEAD:-0}
+    fi
+
+    if [[ -z "$PWNIX_UPSTREAM" ]]; then
+        # Detached HEAD, or a branch with no remote. Nothing to compare against, and
+        # guessing a branch is how an update lands on one you are not on.
+        echo "    no upstream branch - skipped"
+    elif (( BEHIND > 0 )); then
         echo ""
         echo "    $BEHIND new commit(s) available:"
-        git -C "$PWNIX_DIR" log --oneline "$LOCAL".."$REMOTE" 2>/dev/null | sed 's/^/      /'
+        git -C "$PWNIX_DIR" log --oneline "HEAD..$PWNIX_UPSTREAM" 2>/dev/null | sed 's/^/      /'
         echo ""
 
         if confirm "Update PWNIX dotfiles now?"; then
@@ -229,21 +252,49 @@ if command -v git &>/dev/null && [[ -n "$PWNIX_DIR" && -d "$PWNIX_DIR/.git" ]]; 
             # colour *is* a modification here. HEAD covers staged and unstaged alike.
             mapfile -t PWNIX_DIRTY < <(git -C "$PWNIX_DIR" diff --name-only HEAD 2>/dev/null)
 
+            # Committed work of your own the remote has never seen. A fast-forward cannot
+            # take the update past it, so the only way through is to drop those commits —
+            # and that is asked for on its own, defaulting to no, because it is the one
+            # step here nothing can undo.
+            FORCE_RESET=false
+            DIVERGED_STOP=false
+            if (( AHEAD > 0 )); then
+                echo "    You also have $AHEAD commit(s) the remote does not have:"
+                git -C "$PWNIX_DIR" log --oneline "$PWNIX_UPSTREAM..HEAD" 2>/dev/null | sed 's/^/      /'
+                echo ""
+                echo "    The histories have diverged, so the update cannot be applied on top."
+                echo "    Push them (git -C $PWNIX_DIR push) or rebase them, and run sysup again."
+                echo ""
+                if confirm_no "Discard those $AHEAD commit(s) and match the remote exactly?"; then
+                    FORCE_RESET=true
+                else
+                    DIVERGED_STOP=true
+                fi
+            fi
+
             KEEP_LOCAL=false
-            if (( ${#PWNIX_DIRTY[@]} )); then
+            if ! $DIVERGED_STOP && (( ${#PWNIX_DIRTY[@]} )); then
                 echo ""
                 echo "    You have local changes in $PWNIX_DIR:"
-                printf '      %s
-' "${PWNIX_DIRTY[@]}"
+                printf '      %s\n' "${PWNIX_DIRTY[@]}"
                 echo ""
                 echo "    Keeping them replays your edits on top of the new commits."
                 echo "    Answering no discards them. Machine-only tweaks belong in the"
                 echo "    .local files instead, which no update ever touches — see the README."
                 echo ""
                 confirm "Keep your local changes?" && KEEP_LOCAL=true
+                # A dirty tree cannot be fast-forwarded over the files it touches, so
+                # discarding those edits means resetting rather than merging.
+                $KEEP_LOCAL || FORCE_RESET=true
             fi
 
-            if pwnix_apply_update "$KEEP_LOCAL"; then
+            if $DIVERGED_STOP; then
+                # Not an error: having work of your own not yet pushed is a normal state,
+                # and reporting the whole run as failed for it would be noise.
+                echo "    kept your commits - update skipped"
+                record_ok "pwnix dotfiles (skipped)" \
+                    "pwnix: $AHEAD local commit(s) not pushed, $BEHIND waiting"
+            elif pwnix_apply_update "$KEEP_LOCAL" "$FORCE_RESET"; then
                 echo "    [*] Re-deploying dotfiles (sync.sh)..."
                 if PWNIX_SYNC_QUICK=1 bash "$PWNIX_DIR/sync.sh" 2>&1; then
                     PWNIX_PULLED=true
@@ -259,6 +310,9 @@ if command -v git &>/dev/null && [[ -n "$PWNIX_DIR" && -d "$PWNIX_DIR/.git" ]]; 
         else
             echo "    skipped"
         fi
+    elif (( AHEAD > 0 )); then
+        echo "    already up to date ($AHEAD local commit(s) not pushed)"
+        record_ok "pwnix dotfiles (already up to date)" ""
     else
         echo "    already up to date"
         record_ok "pwnix dotfiles (already up to date)" ""

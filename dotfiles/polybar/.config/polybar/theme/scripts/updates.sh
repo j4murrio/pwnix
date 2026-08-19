@@ -22,19 +22,21 @@ REPO_GLYPH="%{T3}%{T-}"
 
 trap 'check_now=1' SIGUSR1
 
-# True (0) when the pwnix repo is behind its remote.
+# True (0) when the pwnix repo is behind its remote — behind only. Commits of your own
+# that the remote does not have are not an update to install, and lighting the glyph for
+# them made it permanent on any machine where a config had been committed.
 repo_has_updates() {
     command -v git &>/dev/null || return 1
-    local repo branch local_rev remote_rev
+    local repo counts behind
     repo=$(pwnix_repo 2>/dev/null) || return 1
 
-    # Timeout + no credential prompt so a slow or offline remote never hangs the bar.
-    timeout 10 env GIT_TERMINAL_PROMPT=0 git -C "$repo" fetch --quiet origin 2>/dev/null
+    # Timeout and no prompt of any kind, so a slow, offline or private remote never hangs
+    # the bar and never opens a window at it.
+    pwnix_fetch "$repo"
 
-    branch=$(git -C "$repo" rev-parse --abbrev-ref HEAD 2>/dev/null)
-    local_rev=$(git -C "$repo" rev-parse HEAD 2>/dev/null)
-    remote_rev=$(git -C "$repo" rev-parse "origin/$branch" 2>/dev/null)
-    [[ -n "$remote_rev" && "$local_rev" != "$remote_rev" ]]
+    counts=$(pwnix_repo_counts "$repo") || return 1
+    read -r behind _ <<< "$counts"
+    (( behind > 0 ))
 }
 
 # Sets TOTAL, or returns 1 when it could not find out — being unable to reach a mirror

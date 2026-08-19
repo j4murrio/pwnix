@@ -240,8 +240,8 @@ if [[ $# -eq 0 && -z "$PWNIX_SYNC_QUICK" ]]; then
             1)
                 echo -e "\n${purpleColour}[*] Installing VMware Guest Additions...${endColour}"
                 pkg_install vmware-tools
-                sudo systemctl enable vmtoolsd.service
-                sudo systemctl enable vmware-vmblock-fuse.service
+                # shellcheck disable=SC2046 - the unit list is ours and deliberately split
+                service_enable $(vm_units vmware)
                 # Add autostart to bspwm.local if not already present
                 if ! grep -q "vmware-user-suid-wrapper" "$HOME/.config/bspwm.local" 2>/dev/null; then
                     echo 'pgrep -x vmware-user-suid-wrapper > /dev/null || vmware-user-suid-wrapper &' >> "$HOME/.config/bspwm.local"
@@ -252,8 +252,8 @@ if [[ $# -eq 0 && -z "$PWNIX_SYNC_QUICK" ]]; then
             2)
                 echo -e "\n${purpleColour}[*] Installing QEMU/KVM Guest Additions...${endColour}"
                 pkg_install spice-vdagent qemu-guest-agent xev
-                sudo systemctl enable spice-vdagentd.service
-                sudo systemctl enable qemu-guest-agent.service
+                # shellcheck disable=SC2046 - the unit list is ours and deliberately split
+                service_enable $(vm_units spice)
                 # Add spice-vdagent autostart to bspwm.local if not already present
                 if ! grep -q "spice-vdagent" "$HOME/.config/bspwm.local" 2>/dev/null; then
                     echo 'spice-vdagent &' >> "$HOME/.config/bspwm.local"

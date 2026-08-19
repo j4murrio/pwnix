@@ -450,7 +450,7 @@ cycle.
 
 Two things it shows that are not numbers:
 
-- **A git glyph** means the pwnix repo has new commits. That is kept separate on purpose: new configuration is a different thing from packages to install.
+- **A git glyph** means the pwnix repo is **behind** its remote — commits waiting to be pulled. Commits of your own that the remote does not have are not an update and do not light it. That is kept separate from the number on purpose: new configuration is a different thing from packages to install.
 - **`?`** means it could not find out — no network, or the mirrors are unreachable. Previously this showed `None`, which claimed there was nothing pending when nothing had been checked.
 
 > **pipx is the one gap.** It has no command to list outdated packages ([pypa/pipx#149](https://github.com/pypa/pipx/issues/149)), and `upgrade-all --dry-run` only exists in recent versions. Where that flag is missing pipx is still updated by `sysup`, it just cannot contribute to the count.
@@ -500,7 +500,7 @@ export EDITOR=nvim
 
 # ~/.config/sxhkd.local — a chord the repo does not ship
 super + shift + b
-	firefox-developer-edition
+	chromium
 ```
 
 > **sxhkd adds, it does not override.** Its config files are read in order and sxhkd does not
@@ -515,6 +515,9 @@ Perfectly fine — it is how you contribute a change back. When `sysup` finds ne
 - **Clean** — fast-forwards. No prompt, and no reset: nothing is at risk.
 - **You have local changes** — it lists them and asks _"Keep your local changes?"_ (Enter = yes). Keeping them stashes your edits, pulls, and replays them on top. Answering no discards them and matches the remote exactly.
 - **Your edit collides with an incoming one** — the update stops and says so, and your work stays safe in the stash. `git stash pop` in the repo after resolving.
+- **You committed, and the remote moved too** — the histories have diverged and no fast-forward can take the update past your commits. It lists them, says to push or rebase them, and asks whether to discard them (Enter = no). Answering no skips the update and leaves your commits exactly where they are.
+
+Committing without pulling anything new is not a state `sysup` reacts to at all: nothing is asked, and the bar does not light.
 
 ---
 
@@ -537,7 +540,7 @@ Perfectly fine — it is how you contribute a change back. When `sysup` finds ne
 | Shortcut                        | Action                  |
 | ------------------------------- | ----------------------- |
 | <kbd>Super</kbd> + <kbd>T</kbd> | Terminal (kitty)        |
-| <kbd>Super</kbd> + <kbd>F</kbd> | Firefox                 |
+| <kbd>Super</kbd> + <kbd>F</kbd> | Browser                 |
 | <kbd>Super</kbd> + <kbd>D</kbd> | Rofi launcher (dmenu)   |
 | <kbd>Super</kbd> + <kbd>E</kbd> | File manager (explorer) |
 
@@ -857,7 +860,7 @@ This configuration uses the following software:
 
 ### Applications
 
-- **Web Browser**: [Firefox Developer Edition](https://www.mozilla.org/firefox/developer/) - Browser with advanced developer tools
+- **Web Browser**: [Firefox](https://www.mozilla.org/firefox/) - `firefox` on Arch, the `firefox-esr` Kali already ships. <kbd>Super</kbd> + <kbd>F</kbd> opens whichever is there, or `$BROWSER` if you export one in `~/.zshrc.local`
 
 ### Fonts
 

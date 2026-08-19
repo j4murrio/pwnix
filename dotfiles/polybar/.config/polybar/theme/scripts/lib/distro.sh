@@ -126,7 +126,7 @@ pkg_name() {
             xorg-server)   printf 'xorg-server\n' ;;
             xinit)         printf 'xorg-xinit\n' ;;
             xev)           printf 'xorg-xev\n' ;;
-            firefox)       printf 'firefox-developer-edition\n' ;;
+            firefox)       printf 'firefox\n' ;;
             man-pages)     printf 'man-pages\n' ;;
             gvfs-mtp)      printf 'gvfs-mtp\n' ;;
             python-pip)    printf 'python-pip\n' ;;
@@ -174,17 +174,33 @@ pkg_name() {
 #  Querying
 # ──────────────────────────────────────────────────────────
 
+# A pacman group (xorg, base-devel) rather than a package. Debian has no such thing: its
+# equivalents are metapackages, which are ordinary packages and need none of this.
+pkg_is_group() {
+    case "$(distro_id)" in
+        arch) pacman -Sg "$1" &>/dev/null ;;
+        *)    return 1 ;;
+    esac
+}
+
+# A group is never "installed": it is a list of names, and having some of them says
+# nothing about the rest. Answering false sends it to pacman, where --needed makes the
+# already-installed members a no-op.
 pkg_installed() {
     case "$(distro_id)" in
-        arch)   pacman -Qi "$1" &>/dev/null ;;
+        arch)   pkg_is_group "$1" && return 1
+                pacman -Qi "$1" &>/dev/null ;;
         debian) [[ "$(dpkg-query -W -f='${Status}' "$1" 2>/dev/null)" == "install ok installed" ]] ;;
         *)      return 1 ;;
     esac
 }
 
+# Package *or* group. Asking only `pacman -Si` is what made the installer report
+# "xorg -> xorg not available on arch" and skip the whole X utility set on every Arch
+# install, while Debian was getting its `xorg` metapackage in full.
 pkg_available() {
     case "$(distro_id)" in
-        arch)   pacman -Si "$1" &>/dev/null ;;
+        arch)   pacman -Si "$1" &>/dev/null || pkg_is_group "$1" ;;
         debian) apt-cache policy "$1" 2>/dev/null | awk '/Candidate:/{print $2}' | grep -qv '(none)' ;;
         *)      return 1 ;;
     esac
@@ -392,6 +408,50 @@ reboot_reason() {
             fi
             ;;
     esac
+}
+
+# ──────────────────────────────────────────────────────────
+#  Services
+# ──────────────────────────────────────────────────────────
+
+# The units a hypervisor's guest tools bring, by their name *here*. Same software, two
+# spellings: on Debian the real unit is open-vm-tools.service, vmtoolsd.service is only a
+# linked alias the package has already enabled, and vmware-vmblock-fuse.service does not
+# exist at all — which is exactly the two "Failed to enable unit" lines a Kali install
+# used to end with.
+vm_units() {
+    case "$1" in
+        vmware)
+            if is_arch; then
+                printf 'vmtoolsd.service vmware-vmblock-fuse.service\n'
+            else
+                printf 'open-vm-tools.service\n'
+            fi
+            ;;
+        spice) printf 'spice-vdagentd.service qemu-guest-agent.service\n' ;;
+        *)     return 1 ;;
+    esac
+}
+
+# Enable what is actually here, and say nothing when there is nothing to do. A unit the
+# package enabled itself is already on; one linked by the package cannot be enabled again
+# and does not need to be. Neither is a problem worth printing at somebody mid-install.
+service_enable() {
+    local unit state rc=0
+    for unit in "$@"; do
+        if ! systemctl list-unit-files --no-legend "$unit" 2>/dev/null | grep -q .; then
+            continue
+        fi
+        state=$(systemctl is-enabled "$unit" 2>/dev/null)
+        case "$state" in
+            enabled|enabled-runtime|static|indirect|alias|linked|linked-runtime) continue ;;
+        esac
+        if ! sudo systemctl enable "$unit" >/dev/null 2>&1; then
+            echo "[!] Could not enable $unit"
+            rc=1
+        fi
+    done
+    return "$rc"
 }
 
 # Arch keeps its signing keys in packages that must be updated before anything else, or

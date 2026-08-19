@@ -315,13 +315,24 @@ if (( ${#MISSING_LINKS[@]} )); then
 fi
 
 # --- 3b. Install LazyVim (stock, no customization) — skip if already present ---
+NVIM_FAILED=false
 if [[ -d "$HOME/.config/nvim" ]]; then
     echo -e "${yellowColour}[✓] LazyVim config already present at ~/.config/nvim, skipping.${endColour}\n"
 else
     echo -e "${purpleColour}[*] Installing LazyVim...${endColour}"
     git clone --depth=1 https://github.com/LazyVim/starter "$HOME/.config/nvim"
     rm -rf "$HOME/.config/nvim/.git"
+
+    # Twice, and that is not superstition. On a first sync mason is still installing
+    # tree-sitter-cli when LazyVim's treesitter build asks mason for the same thing, and
+    # the second request loses: "Package is already installing" aborts the config of
+    # nvim-treesitter and the parsers never get built. By the second pass the cli is there
+    # and there is nothing left to race.
     nvim --headless "+Lazy! sync" +qa
+    if ! nvim --headless "+Lazy! sync" +qa; then
+        NVIM_FAILED=true
+        echo -e "${yellowColour}[!] LazyVim finished with errors. Run :Lazy sync inside nvim.${endColour}"
+    fi
     echo -e "${greenColour}[+] Done.${endColour}\n"
 fi
 
@@ -432,8 +443,8 @@ while true; do
         1)
             echo -e "\n${purpleColour}[*] Installing VMware Guest Additions...${endColour}"
             pkg_install vmware-tools
-            sudo systemctl enable vmtoolsd.service
-            sudo systemctl enable vmware-vmblock-fuse.service
+            # shellcheck disable=SC2046 - the unit list is ours and deliberately split
+            service_enable $(vm_units vmware)
             # Add autostart to bspwm.local if not already present
             if ! grep -q "vmware-user-suid-wrapper" "$HOME/.config/bspwm.local" 2>/dev/null; then
                 echo 'pgrep -x vmware-user-suid-wrapper > /dev/null || vmware-user-suid-wrapper &' >> "$HOME/.config/bspwm.local"
@@ -444,8 +455,8 @@ while true; do
         2)
             echo -e "\n${purpleColour}[*] Installing QEMU/KVM Guest Additions...${endColour}"
             pkg_install spice-vdagent qemu-guest-agent xev
-            sudo systemctl enable spice-vdagentd.service
-            sudo systemctl enable qemu-guest-agent.service
+            # shellcheck disable=SC2046 - the unit list is ours and deliberately split
+            service_enable $(vm_units spice)
             # Add spice-vdagent autostart to bspwm.local if not already present
             if ! grep -q "spice-vdagent" "$HOME/.config/bspwm.local" 2>/dev/null; then
                 echo 'spice-vdagent &' >> "$HOME/.config/bspwm.local"
@@ -493,6 +504,11 @@ else
     echo -e "\n${greenColour}[+] DONE!${endColour}"
     echo -e "${greenColour}[✓] Installation complete!${endColour}\n"
 fi
+
+# Editor plugins are recoverable from inside nvim, so this is a note rather than a failed
+# install — but buried in the log it is a note nobody ever reads.
+$NVIM_FAILED &&
+    echo -e "${yellowColour}[!] LazyVim did not finish cleanly. Open nvim and run :Lazy sync${endColour}\n"
 echo -e "${blueColour}[i] The full installation process has been logged to: $LOG_FILE${endColour}"
 echo -e "${blueColour}    You can review it anytime and delete it when no longer needed.${endColour}\n"
 
