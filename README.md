@@ -10,6 +10,9 @@ dresses the desktop in.
 > drop-down.** Open yours and ignore the other — you will never need to translate a command by
 > hand. Anything not inside one works the same on both.
 
+Changing the repository rather than using it? [ARCHITECTURE.md](ARCHITECTURE.md) explains how
+it is put together.
+
 ## Important Notes
 
 ISO downloads: [Arch Linux](https://archlinux.org/download/) · [Kali Linux](https://www.kali.org/get-kali/)
