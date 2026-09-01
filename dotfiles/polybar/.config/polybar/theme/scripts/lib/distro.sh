@@ -298,10 +298,108 @@ pkg_update_all() {
     esac
 }
 
+# A package index of this user's own, for apt.
+#
+# apt has no checkupdates(8), and that gap is what left the Kali counter saying "None" for
+# days at a time: it counted against /var/lib/apt/lists as they stood, and nothing on Kali
+# refreshes those on its own — apt-daily only does it when APT::Periodic::Update-Package-Lists
+# is set, which is unattended-upgrades' doing and Kali does not install it. Arch never had
+# the problem: checkupdates syncs a database of its own, as an ordinary user.
+#
+# So this is that database. Refreshing it needs no root, which is the whole point: a polybar
+# module has no terminal and must never ask for a password.
+
+: "${PWNIX_APT_CACHE:=${XDG_CACHE_HOME:-$HOME/.cache}/pwnix/apt}"
+
+# The system's own lists. Overridable for the same reason PWNIX_OS_RELEASE is: so the
+# choice between the two indices can be exercised without a machine in each state.
+: "${PWNIX_APT_SYSTEM_LISTS:=/var/lib/apt/lists}"
+
+# How long a refresh counts as current. The kali-rolling index is not something to fetch
+# every thirty minutes, and apt only fetches diffs after the first time.
+: "${PWNIX_APT_TTL:=10800}"
+
+_apt_cache_init() {
+    mkdir -p "$PWNIX_APT_CACHE/lists/partial" "$PWNIX_APT_CACHE/cache/archives/partial"
+}
+
+# When a lists directory last received an index, as a unix timestamp. Nothing at all when it
+# holds none, which is how "never refreshed" stays distinct from "refreshed long ago".
+_apt_lists_age() {
+    local newest
+    newest=$(find "$1" -maxdepth 1 -type f -name '*_Packages*' -printf '%T@\n' 2>/dev/null |
+        sort -n | tail -1)
+    [[ -n "$newest" ]] || return 1
+    printf '%d\n' "${newest%%.*}"
+}
+
+# Age of the private index, from the stamp rather than from the files. A mirror with nothing
+# new answers 304 and apt leaves every timestamp alone, so the files can say what changed but
+# never when the last refresh happened.
+_apt_private_age() {
+    local stamp="$PWNIX_APT_CACHE/refreshed.stamp" age
+    _apt_lists_age "$PWNIX_APT_CACHE/lists" >/dev/null || return 1
+    if [[ -f "$stamp" ]] && age=$(stat -c %Y "$stamp" 2>/dev/null) && [[ -n "$age" ]]; then
+        printf '%s\n' "$age"
+        return 0
+    fi
+    _apt_lists_age "$PWNIX_APT_CACHE/lists"
+}
+
+# "<directory> <timestamp>" for whichever index was refreshed last. Right after sysup — or
+# after an apt update of your own — the system's is the fresher of the two, so the ordinary
+# case downloads nothing at all.
+_apt_newest_lists() {
+    local sys="$PWNIX_APT_SYSTEM_LISTS" own="$PWNIX_APT_CACHE/lists" sys_age own_age
+    sys_age=$(_apt_lists_age "$sys") || sys_age=0
+    own_age=$(_apt_private_age) || own_age=0
+    (( sys_age == 0 && own_age == 0 )) && return 1
+    if (( own_age > sys_age )); then
+        printf '%s %s\n' "$own" "$own_age"
+    else
+        printf '%s %s\n' "$sys" "$sys_age"
+    fi
+}
+
+# Refresh the private index. Bounded and silent: the bar must not hang on an unreachable
+# mirror, and it would have nowhere to print if it did.
+apt_private_refresh() {
+    local lists="$PWNIX_APT_CACHE/lists" before after rc=0
+    _apt_cache_init || return 1
+    before=$(_apt_lists_age "$lists") || before=0
+
+    apt-get update -qq \
+        -o Dir::State::Lists="$lists" \
+        -o Dir::Cache="$PWNIX_APT_CACHE/cache" \
+        -o Acquire::Languages=none \
+        -o Acquire::Retries=1 \
+        -o Acquire::http::Timeout=10 \
+        -o Acquire::https::Timeout=10 \
+        >/dev/null 2>&1 || rc=$?
+
+    # The status on its own is not the answer. A Post-Invoke-Success script in apt.conf.d
+    # that expects root — cnf-update-db is the usual one — fails long after the indices
+    # arrived intact and takes apt-get's status down with it. Being offline, by contrast,
+    # leaves every timestamp exactly where it was.
+    after=$(_apt_lists_age "$lists") || return 1
+    (( rc == 0 || after > before )) || return 1
+    touch "$PWNIX_APT_CACHE/refreshed.stamp"
+}
+
+# How many packages the given index says are waiting.
+_apt_count_against() {
+    local out
+    _apt_cache_init || return 1
+    out=$(apt-get --just-print dist-upgrade \
+        -o Dir::State::Lists="$1" \
+        -o Dir::Cache="$PWNIX_APT_CACHE/cache" 2>/dev/null) || return 1
+    printf '%s\n' "$(printf '%s\n' "$out" | grep -c '^Inst ')"
+}
+
 # How many packages are waiting. Prints a number and returns 0, or prints nothing and
 # returns 1 when it could not find out — offline is not the same as up to date.
 pkg_count_updates() {
-    local out rc
+    local out rc lists age now
     case "$(distro_id)" in
         arch)
             # checkupdates(8): 0 updates available, 1 failure, 2 none available. It is
@@ -317,14 +415,22 @@ pkg_count_updates() {
             # Without pacman-contrib, count against the local database instead. It can
             # be a sync behind, but a slightly stale number beats a permanent ?. No
             # status check here either: pacman -Qu also exits 1 on an empty result.
-            printf '%s\n' "$(pacman -Qu 2>/dev/null | grep -c .)"
+            # Packages held by IgnorePkg are dropped: no upgrade will ever clear them, and
+            # counting them leaves a number that never reaches zero.
+            printf '%s\n' "$(pacman -Qu 2>/dev/null | grep -v '\[ignored\]' | grep -c .)"
             ;;
         debian)
-            # Deliberately without apt-get update: refreshing the lists needs root, and a
-            # polybar module must never ask for a password. It counts against the lists
-            # as they stand, which the update itself refreshes.
-            out=$(apt-get --just-print dist-upgrade 2>/dev/null) || return 1
-            printf '%s\n' "$(printf '%s\n' "$out" | grep -c '^Inst ')"
+            # Whichever index is current, and a refresh of our own only when neither is.
+            # Counting against lists nobody had refreshed is what reported "None" on Kali
+            # while apt full-upgrade had hundreds of packages waiting.
+            now=$(date +%s)
+            read -r lists age <<< "$(_apt_newest_lists)"
+            if [[ -n "$lists" ]] && (( now - age < PWNIX_APT_TTL )); then
+                _apt_count_against "$lists"
+                return
+            fi
+            apt_private_refresh || return 1
+            _apt_count_against "$PWNIX_APT_CACHE/lists"
             ;;
         *) return 1 ;;
     esac
@@ -370,20 +476,47 @@ pkg_clean_cache() {
 #  System state
 # ──────────────────────────────────────────────────────────
 
-# True when the machine is running an older kernel than the one installed. Arch has to
-# be asked; Debian leaves a file behind and answering from it is both cheaper and more
-# accurate, since it also covers the non-kernel cases that need a restart.
+# The newest kernel installed on Arch, by its module directory. Only directories carrying a
+# pkgbase file count: pacman leaves the rest behind whenever something wrote into them — a
+# DKMS or nvidia module is enough — and a leftover from a kernel that is no longer installed
+# is how the bar came to ask for a restart that no restart ever cleared.
+_arch_latest_kernel() {
+    local latest
+    latest=$(find /usr/lib/modules -mindepth 2 -maxdepth 2 -name pkgbase -printf '%h\n' 2>/dev/null |
+        sed 's|.*/||' | sort -V | tail -1)
+    [[ -n "$latest" ]] || return 1
+    printf '%s\n' "$latest"
+}
+
+# The kernel Debian would boot next. dpkg names those packages linux-image-<uname -r>, so the
+# comparison is direct; the metapackages carry no version in the name and are skipped.
+_debian_latest_kernel() {
+    local latest
+    latest=$(dpkg-query -W -f='${Package} ${Status}\n' 'linux-image-*' 2>/dev/null |
+        awk '$2 == "install" && $4 == "installed" { print $1 }' |
+        sed -n 's/^linux-image-\([0-9].*\)$/\1/p' | sort -V | tail -1)
+    [[ -n "$latest" ]] || return 1
+    printf '%s\n' "$latest"
+}
+
+# True when the machine is running an older kernel than the one installed. Debian leaves a
+# file behind and answering from it is both cheaper and wider, since it also covers the
+# non-kernel cases that need a restart — but that file comes from update-notifier-common,
+# which Kali does not install, so the kernel is compared directly when it is missing rather
+# than reporting that nothing is pending.
 reboot_required() {
+    local running latest
     case "$(distro_id)" in
         arch)
-            local running latest
             running=$(uname -r)
-            latest=$(find /usr/lib/modules -maxdepth 1 -mindepth 1 -type d -printf '%f\n' 2>/dev/null |
-                sort -V | tail -1)
-            [[ -n "$latest" && "$running" != "$latest" ]]
+            latest=$(_arch_latest_kernel) || return 1
+            [[ "$running" != "$latest" ]]
             ;;
         debian)
-            [[ -f /var/run/reboot-required ]]
+            [[ -f /var/run/reboot-required ]] && return 0
+            running=$(uname -r)
+            latest=$(_debian_latest_kernel) || return 1
+            [[ "$running" != "$latest" ]]
             ;;
         *) return 1 ;;
     esac
@@ -391,18 +524,20 @@ reboot_required() {
 
 # What to tell the user about the pending restart, in one line.
 reboot_reason() {
+    local running latest
     case "$(distro_id)" in
         arch)
-            local running latest
             running=$(uname -r)
-            latest=$(find /usr/lib/modules -maxdepth 1 -mindepth 1 -type d -printf '%f\n' 2>/dev/null |
-                sort -V | tail -1)
+            latest=$(_arch_latest_kernel)
             printf 'Running: %s  ->  Installed: %s\n' "$running" "$latest"
             ;;
         debian)
             if [[ -f /var/run/reboot-required.pkgs ]]; then
                 printf 'Packages needing a restart: %s\n' \
                     "$(paste -sd ', ' /var/run/reboot-required.pkgs 2>/dev/null)"
+            elif latest=$(_debian_latest_kernel); then
+                running=$(uname -r)
+                printf 'Running: %s  ->  Installed: %s\n' "$running" "$latest"
             else
                 printf 'The system reports that a restart is required.\n'
             fi

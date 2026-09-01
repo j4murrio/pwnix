@@ -256,8 +256,8 @@ Two rules bind anything running in the bar:
 - **A module must never ask for anything.** No password, no askpass, no prompt — there is no
   terminal to answer in. `pwnix_fetch` wraps `git fetch` in a timeout plus
   `GIT_TERMINAL_PROMPT=0`, `GIT_ASKPASS`, `SSH_ASKPASS_REQUIRE=never` and
-  `ssh -o BatchMode=yes` for exactly this reason; `pkg_count_updates` counts against the
-  existing apt lists rather than refreshing them, because refreshing needs root.
+  `ssh -o BatchMode=yes` for exactly this reason; `pkg_count_updates` never calls
+  `sudo apt-get update`, and keeps a package index of its own instead.
 - **`SIGUSR1` forces an immediate refresh.** `updates.sh` traps it and `update-system.sh` sends
   it on completion, so the number in the bar is correct the moment an update ends rather than
   up to thirty minutes later.
@@ -279,6 +279,16 @@ number in the bar would stop meaning anything.
 There are two sources and deliberately only two: the package manager (pacman with BlackArch and
 the AUR, or apt) and the pwnix repository itself. The repository is shown as a glyph rather
 than added to the number — new configuration is a different thing from packages to install.
+
+**The counter refreshes its own index.** `checkupdates` gives Arch a fresh view of the
+mirrors without root, and apt has no equivalent: counting against `/var/lib/apt/lists` as
+they stand means counting against whatever the last `sudo apt update` left behind, and on
+Kali nothing refreshes those on its own — `apt-daily` only does it when
+`APT::Periodic::Update-Package-Lists` is set, which is `unattended-upgrades`' doing and
+Kali does not install it. So `pkg_count_updates` keeps its own lists under
+`~/.cache/pwnix/apt`, refreshed as an ordinary user (`PWNIX_APT_TTL`, three hours by
+default) and only when the system's are older still — straight after `sysup` they are not,
+and nothing is downloaded. A refresh that fails is reported as `?`, never as zero.
 
 **Only *behind* counts as an update.** Commits of your own that the remote does not have are
 not something to install, and reading the comparison as "local != remote" is what kept the

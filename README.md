@@ -456,7 +456,14 @@ Two things it shows that are not numbers:
 - **A git glyph** means the pwnix repo is **behind** its remote — commits waiting to be pulled. Commits of your own that the remote does not have are not an update and do not light it. That is kept separate from the number on purpose: new configuration is a different thing from packages to install.
 - **`?`** means it could not find out — no network, or the mirrors are unreachable. Previously this showed `None`, which claimed there was nothing pending when nothing had been checked.
 
-> **pipx is the one gap.** It has no command to list outdated packages ([pypa/pipx#149](https://github.com/pypa/pipx/issues/149)), and `upgrade-all --dry-run` only exists in recent versions. Where that flag is missing pipx is still updated by `sysup`, it just cannot contribute to the count.
+> **Where the number comes from.** Asking for the count must never ask for a password, so it
+> is never `sudo apt update`. On Arch that is `checkupdates`, which syncs a database of its
+> own; on Kali the module keeps its own package lists under `~/.cache/pwnix/apt` and refreshes
+> them as your user, at most every three hours (`PWNIX_APT_TTL`) and only when the system's
+> lists are older — right after an update they are not, so nothing is downloaded. The first
+> refresh pulls the whole index; every one after it is a diff. Counting
+> against the system lists alone is what used to report `None` on Kali for days at a time:
+> nothing there refreshes them between one `apt update` and the next.
 
 ### Distribution branding
 
