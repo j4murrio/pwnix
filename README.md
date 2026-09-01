@@ -1312,6 +1312,92 @@ opencode --version
 
 </details>
 
+### OpenRouter
+
+[OpenRouter](https://openrouter.ai/) provides a unified API for connecting OpenCode to multiple AI models from different providers. It also offers a selection of **free models**, making it a convenient option for CTFs and security research without requiring a paid API subscription.
+
+#### 1. Create an OpenRouter account
+
+Create an account at [OpenRouter](https://openrouter.ai/) and generate an API key from your account dashboard.
+
+> **Note:** OpenRouter itself is not installed as a system package. It is an online API provider that OpenCode connects to using your API key.
+
+#### 2. Connect OpenRouter to OpenCode
+
+Launch OpenCode:
+
+```bash
+opencode
+```
+
+Then type:
+
+```
+/connect
+```
+
+Select **OpenRouter** from the provider list and paste your OpenRouter API key.
+
+Once connected, the available OpenRouter models will appear in OpenCode.
+
+#### 3. Use a free model
+
+Inside OpenCode, type:
+
+```
+/models
+```
+
+Look for models marked as **free** and select the one you want to use.
+
+You can also use OpenRouter's automatic free-model router:
+
+```text
+openrouter/free
+```
+
+This allows OpenRouter to select an available free model automatically.
+
+> **Free model availability and usage limits can change over time.** If a particular free model becomes unavailable or reaches its rate limit, use another available free model from `/models`.
+
+#### 4. Set OpenRouter as the default provider
+
+To always start OpenCode with a specific OpenRouter model, add it to `~/.config/opencode/opencode.json`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "openrouter/<model-id>",
+  "mcp": {
+    ...
+  }
+}
+```
+
+For the automatic free-model router:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "openrouter/free",
+  "mcp": {
+    ...
+  }
+}
+```
+
+> Use `/models` inside OpenCode to find the exact model ID available through your OpenRouter account.
+
+#### 5. Check the connection
+
+```bash
+opencode auth list
+```
+
+OpenRouter should appear as a connected provider.
+
+---
+
 #### Update
 
 <details>
