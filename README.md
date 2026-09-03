@@ -428,7 +428,8 @@ None of these are touched by `sysup`. Same commands on Arch and Kali unless note
 omz update            # or: git -C ~/.oh-my-zsh pull
 git -C ~/.oh-my-zsh/custom/themes/powerlevel10k pull
 
-# Neovim plugins
+# Neovim plugins. Its requirements (lazygit, ripgrep, fd, tree-sitter-cli, curl) are
+# system packages and sysup already updates them.
 nvim --headless "+Lazy! sync" +qa
 
 # The persistent python venv created by wsinit
@@ -861,6 +862,9 @@ This configuration uses the following software:
 ### Development & CLI Tools
 
 - **Editor**: [neovim](https://neovim.io/) + [LazyVim](https://www.lazyvim.org/) - Stock LazyVim starter, no custom config
+- **Git TUI**: [lazygit](https://github.com/jesseduffield/lazygit) - Terminal UI for git, what LazyVim opens on `<leader>gg`
+- **Search**: [ripgrep](https://github.com/BurntSushi/ripgrep) - Recursive grep, behind LazyVim's live grep
+- **File Finder**: [fd](https://github.com/sharkdp/fd) - `fd` on Arch; on Kali the package is `fd-find` and its binary `fdfind`, which the installer links as `fd` so nvim finds it
 - **Fuzzy Finder**: [fzf](https://github.com/junegunn/fzf) - Command-line fuzzy finder
 - **Modern ls**: [lsd](https://github.com/lsd-rs/lsd) - Next-gen ls command
 - **Modern cat**: [bat](https://github.com/sharkdp/bat) - Cat clone with syntax highlighting

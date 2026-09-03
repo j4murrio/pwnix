@@ -132,7 +132,10 @@ arbitrary:
 8. **Verification** — four links a working session cannot start without.
 9. **LazyVim** — cloned only if `~/.config/nvim` is absent, then `Lazy! sync` twice. The second
    pass is not superstition: on the first sync mason is still installing `tree-sitter-cli` when
-   LazyVim's treesitter build asks for the same thing, and the loser aborts.
+   LazyVim's treesitter build asks for the same thing, and the loser aborts. The
+   requirements are installed back at step 2 next to neovim, from the single list in
+   `lazyvim_deps()`; the two minimum versions LazyVim needs are checked here and reported at
+   the end.
 10. **Local overrides, `bspwm.desktop`, root environment, BlackArch (Arch only), guest additions.**
 11. **An honest ending** — if any package failed, any stow package failed, or any critical link
     is missing, it prints `INSTALLATION INCOMPLETE` and what to fix. Saying "complete" after

@@ -139,6 +139,11 @@ pkg_name() {
             pywal)         printf 'python-pywal\n' ;;
             checkupdates)  printf 'pacman-contrib\n' ;;
             pulseaudio-alsa) printf 'pulseaudio-alsa\n' ;;
+            curl)          printf 'curl\n' ;;
+            lazygit)       printf 'lazygit\n' ;;
+            ripgrep)       printf 'ripgrep\n' ;;
+            fd)            printf 'fd\n' ;;
+            tree-sitter-cli) printf 'tree-sitter-cli\n' ;;
             vmware-tools)  printf 'open-vm-tools gtkmm3\n' ;;
             *)             printf '%s\n' "$logical" ;;
         esac
@@ -165,9 +170,43 @@ pkg_name() {
         libnotify)      printf 'libnotify-bin\n' ;;
         golang)         printf 'golang-go\n' ;;
         i3lock-fancy)   printf 'i3lock-fancy\n' ;;
+        curl)           printf 'curl\n' ;;
+        lazygit)        printf 'lazygit\n' ;;
+        ripgrep)        printf 'ripgrep\n' ;;
+        fd)             printf 'fd-find\n' ;;
+        tree-sitter-cli) printf 'tree-sitter-cli\n' ;;
         vmware-tools)   printf 'open-vm-tools open-vm-tools-desktop\n' ;;
         *)              printf '%s\n' "$logical" ;;
     esac
+}
+
+# ──────────────────────────────────────────────────────────
+#  LazyVim
+# ──────────────────────────────────────────────────────────
+
+# What LazyVim needs beyond neovim itself, in logical names. Printed rather than held in a
+# variable so install.sh and sync.sh read the same list and cannot drift apart. The rest of
+# what it asks for already comes with the environment: a C compiler through build-tools, a
+# Nerd Font from assets/fonts, fzf among the system utilities, and kitty as the terminal.
+lazyvim_deps() {
+    printf 'curl git lazygit ripgrep fd tree-sitter-cli\n'
+}
+
+# Debian ships fd's binary as fdfind. The .zshrc alias covers an interactive shell, but
+# fzf-lua looks the binary up in PATH and never sees it, so LazyVim falls back to find
+# without saying so. The link is what Debian's own package documentation suggests.
+ensure_fd_binary() {
+    is_debian || return 0
+    command -v fd &>/dev/null && return 0
+    command -v fdfind &>/dev/null || return 0
+    sudo ln -sf "$(command -v fdfind)" /usr/local/bin/fd
+}
+
+# True when version $1 is at least $2. sort -V knows 0.11.2 comes after 0.9.5; string
+# comparison does not.
+version_at_least() {
+    [[ -n "$1" ]] || return 1
+    [[ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -n1)" == "$2" ]]
 }
 
 # ──────────────────────────────────────────────────────────

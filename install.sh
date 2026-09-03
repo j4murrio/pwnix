@@ -91,6 +91,17 @@ else
     pkg_install neovim
 fi
 
+# LazyVim's requirements, installed with the editor rather than folded into the groups
+# above: without them fzf-lua, blink.cmp and treesitter are all degraded and the reason is
+# never obvious from inside nvim. The list lives in distro.sh so sync.sh installs the same
+# set. git, a C compiler, fzf, the Nerd Font and kitty already come from the groups above.
+echo -ne "\n[+] Installing LazyVim requirements...\n"
+# shellcheck disable=SC2046 - the list is ours and deliberately word-split
+pkg_install $(lazyvim_deps)
+(( ${#PKG_UNAVAILABLE[@]} )) && UNAVAILABLE+=("${PKG_UNAVAILABLE[@]}")
+(( ${#PKG_FAILED_LAST[@]} )) && PKG_FAILED+=("${PKG_FAILED_LAST[@]}")
+ensure_fd_binary
+
 # A fresh install can come up with the sink above 100%, which is unpleasant and easy
 # to miss. Set once here; bspwmrc catches the case where no audio daemon was running
 # yet at this point.
@@ -315,6 +326,18 @@ if (( ${#MISSING_LINKS[@]} )); then
 fi
 
 # --- 3b. Install LazyVim (stock, no customization) — skip if already present ---
+# LazyVim refuses to start below these two, and what it prints when it does is not a
+# version error anybody recognises. Checked and reported rather than enforced: on Arch
+# both are always new enough, and on an older Debian base the fix belongs to the
+# distribution, not to this script.
+VERSION_WARNINGS=()
+NVIM_VERSION=$(nvim --version 2>/dev/null | head -n1 | sed 's/^NVIM v//; s/[-+].*//')
+version_at_least "$NVIM_VERSION" 0.11.2 ||
+    VERSION_WARNINGS+=("neovim ${NVIM_VERSION:-not found} is below the 0.11.2 LazyVim requires")
+GIT_VERSION=$(git --version 2>/dev/null | awk '{print $3}')
+version_at_least "$GIT_VERSION" 2.19.0 ||
+    VERSION_WARNINGS+=("git ${GIT_VERSION:-not found} is below the 2.19.0 LazyVim requires")
+
 NVIM_FAILED=false
 if [[ -d "$HOME/.config/nvim" ]]; then
     echo -e "${yellowColour}[✓] LazyVim config already present at ~/.config/nvim, skipping.${endColour}\n"
@@ -509,6 +532,16 @@ fi
 # install — but buried in the log it is a note nobody ever reads.
 $NVIM_FAILED &&
     echo -e "${yellowColour}[!] LazyVim did not finish cleanly. Open nvim and run :Lazy sync${endColour}\n"
+
+# Same for a version LazyVim cannot work with: nothing here can fix it, and finding out
+# from a broken editor a week later is worse than reading it now.
+if (( ${#VERSION_WARNINGS[@]} )); then
+    for warning in "${VERSION_WARNINGS[@]}"; do
+        echo -e "${yellowColour}[!] $warning${endColour}"
+    done
+    echo -e "${yellowColour}    Upgrade it through your distribution before using nvim.${endColour}\n"
+fi
+
 echo -e "${blueColour}[i] The full installation process has been logged to: $LOG_FILE${endColour}"
 echo -e "${blueColour}    You can review it anytime and delete it when no longer needed.${endColour}\n"
 

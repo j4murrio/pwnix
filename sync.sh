@@ -177,6 +177,15 @@ else
     pkg_install neovim
 fi
 
+# The same requirement list install.sh uses. Unguarded on purpose: this is what brings a
+# machine installed before they were declared back up to date, and update-system.sh runs
+# this script. pkg_install returns before it reaches sudo when nothing is missing.
+echo -e "${purpleColour}[*] Checking LazyVim requirements...${endColour}"
+# shellcheck disable=SC2046 - the list is ours and deliberately word-split
+pkg_install $(lazyvim_deps) ||
+    echo -e "${redColour}[!] Could not install: ${PKG_FAILED_LAST[*]}${endColour}"
+ensure_fd_binary
+
 if [[ -d "$HOME/.config/nvim" ]]; then
     echo -e "${yellowColour}[✓] LazyVim config already present at ~/.config/nvim, skipping.${endColour}"
 else
